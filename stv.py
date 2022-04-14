@@ -106,11 +106,12 @@ class Election:
             ballot.drop(loser)
 
     def show(self):
+        print(f"Threshold: {self.threshold:.4f}")
         print("Rounds:")
         for i, round in enumerate(self.rounds):
             print(f"Round {i + 1}:")
             for cand, score in sorted(round.scores.items(), key=lambda x: x[1], reverse=True):
-                print(f"- {cand} - {score} - {score/len(self.ballots):.4%}")
+                print(f"- {cand} - {score:.4f} - {score/len(self.ballots):.4%}")
             if round.winners is not None:
                 print(f"Elected {len(round.winners)} candidates")
             if round.loser is not None:
