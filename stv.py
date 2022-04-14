@@ -93,6 +93,10 @@ class Election:
             else:
                 self.eliminate_losers(scores)
 
+            for ballot in self.ballots:
+                for candidate in self.winners + self.losers:
+                    ballot.drop(candidate)
+
             if len(self.winners) + len(self.hopefuls) < self.seats:
                 final_winners = []
                 while len(self.winners) < self.seats:
@@ -110,8 +114,6 @@ class Election:
                     ballot.current_preference
                 ]
                 ballot.weight *= surplus
-            for winner in self.winners:
-                ballot.drop(winner)
 
     def eliminate_losers(self, scores):
         if not self.hopefuls:
@@ -122,8 +124,6 @@ class Election:
         for loser in losers:
             self.losers.append(loser)
             self.hopefuls.remove(loser)
-            for ballot in self.ballots:
-                ballot.drop(loser)
         self.rounds.append(Round(winners=None, losers=losers, scores=scores))
 
     def show(self):
