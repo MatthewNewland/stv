@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from typing import Mapping, Optional
+
 # import threading
 # from time import sleep
 import string
@@ -36,7 +37,7 @@ class Ballot:
 @dataclass
 class Round:
     winners: Optional[list[Candidate]]
-    loser: Optional[Candidate]
+    losers: Optional[list[Candidate]]
     scores: Mapping[Candidate, int | float]
 
 
@@ -48,7 +49,9 @@ class Election:
     losers: list[Candidate]
     rounds: list[Round]
 
-    def __init__(self, candidates: list[Candidate], ballots: list[Ballot], seats: int = 1):
+    def __init__(
+        self, candidates: list[Candidate], ballots: list[Ballot], seats: int = 1
+    ):
         self.hopefuls = candidates
         self.ballots = ballots
         self.seats = seats
@@ -72,50 +75,72 @@ class Election:
                     continue
                 scores[ballot.current_preference] += ballot.weight
 
-            round_winners = [cand for cand in self.hopefuls if scores[cand] > self.threshold]
+            round_winners = list(sorted(
+                [cand for cand in self.hopefuls if scores[cand] > self.threshold],
+                key=lambda cand: scores[cand],
+                reverse=True,
+            ))
 
             if len(round_winners) > 0:
                 # Surplus transfer round
                 self.winners.extend(round_winners)
-                self.rounds.append(Round(winners=round_winners, loser=None, scores=scores))
+                self.rounds.append(
+                    Round(winners=round_winners, losers=None, scores=scores)
+                )
                 for winner in round_winners:
                     self.hopefuls.remove(winner)
+                    for ballot in self.ballots:
+                        ballot.drop(winner)
                 self.transfer_surplus(scores)
             else:
                 self.eliminate_losers(scores)
 
             if len(self.winners) + len(self.hopefuls) < self.seats:
+                final_winners = []
                 while len(self.winners) < self.seats:
-                    self.winners.append(self.losers.pop())
+                    final_winners.append(self.losers.pop())
+                    self.rounds.append(Round(final_winners, losers=None, scores=scores))
+                    self.winners.extend(final_winners)
+
+            while len(self.winners) > self.seats:
+                self.winners.pop()
 
     def transfer_surplus(self, scores):
         for ballot in self.ballots:
             if ballot.current_preference in self.winners:
-                surplus = (scores[ballot.current_preference] - self.threshold) / scores[ballot.current_preference]
+                surplus = (scores[ballot.current_preference] - self.threshold) / scores[
+                    ballot.current_preference
+                ]
                 ballot.weight *= surplus
                 ballot.drop(ballot.current_preference)
 
     def eliminate_losers(self, scores):
         if not self.hopefuls:
             return
-        loser = min(self.hopefuls, key=lambda cand: scores[cand])
-        self.losers.append(loser)
-        self.hopefuls.remove(loser)
-        self.rounds.append(Round(winners=None, loser=loser, scores=scores))
-        for ballot in self.ballots:
-            ballot.drop(loser)
+        the_loser = min(self.hopefuls, key=lambda cand: scores[cand])
+        loser_score = scores[the_loser]
+        losers = [cand for cand in self.hopefuls if scores[cand] == loser_score]
+        print(losers)
+        for loser in losers:
+            self.losers.append(loser)
+            self.hopefuls.remove(loser)
+            for ballot in self.ballots:
+                ballot.drop(loser)
+        self.rounds.append(Round(winners=None, losers=losers, scores=scores))
 
     def show(self):
         print(f"Threshold: {self.threshold:.4f}")
         print("Rounds:")
         for i, round in enumerate(self.rounds):
             print(f"Round {i + 1}:")
-            for cand, score in sorted(round.scores.items(), key=lambda x: x[1], reverse=True):
+            for cand, score in sorted(
+                round.scores.items(), key=lambda x: x[1], reverse=True
+            ):
                 print(f"- {cand} - {score:.4f} - {score/len(self.ballots):.4%}")
             if round.winners is not None:
                 print(f"Elected {len(round.winners)} candidates")
-            if round.loser is not None:
-                print(f"Eliminated {round.loser} and transferred votes")
+            if round.losers is not None:
+                print(f"Eliminated {round.losers} and transferred votes")
         print("Results:")
         for i, winner in enumerate(self.winners):
             print(f"Seat {i + 1}: {winner} wins!")
@@ -123,20 +148,22 @@ class Election:
 
 def ballots_from_json(ballot_file: os.PathLike) -> tuple[list[Candidate], list[Ballot]]:
     data = json.loads(Path(ballot_file).read_text())
-    candidates = data['candidates']
+    candidates = data["candidates"]
 
     ballots = []
 
-    for datum in data['ballots']:
-        count = datum.get('count', 1)
-        ranking = datum['ranking']
+    for datum in data["ballots"]:
+        count = datum.get("count", 1)
+        ranking = datum["ranking"]
 
         ballots.extend([Ballot(ranking.copy()) for _ in range(count)])
 
     return (candidates, ballots)
 
 
-def party_plug(nparties, nseats, party_fractions) -> tuple[list[Candidate], list[Ballot]]:
+def party_plug(
+    nparties, nseats, party_fractions
+) -> tuple[list[Candidate], list[Ballot]]:
     letters = string.ascii_uppercase
     if nparties > len(letters):
         raise ValueError(f"Max {len(letters)} parties")
@@ -145,7 +172,7 @@ def party_plug(nparties, nseats, party_fractions) -> tuple[list[Candidate], list
     parties = [party for party in letters[:nparties]]
     candidates = [f"{party}{i + 1}" for party in parties for i in range(nseats)]
     ballots = []
-    party_fractions = [round(100*frac) for frac in party_fractions]
+    party_fractions = [round(100 * frac) for frac in party_fractions]
     for i, frac in enumerate(party_fractions):
         for _ in range(frac):
             ballots.append(Ballot([f"{parties[i]}{j + 1}" for j in range(nseats)]))
