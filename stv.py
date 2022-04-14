@@ -89,8 +89,6 @@ class Election:
                 )
                 for winner in round_winners:
                     self.hopefuls.remove(winner)
-                    for ballot in self.ballots:
-                        ballot.drop(winner)
                 self.transfer_surplus(scores)
             else:
                 self.eliminate_losers(scores)
@@ -112,7 +110,8 @@ class Election:
                     ballot.current_preference
                 ]
                 ballot.weight *= surplus
-                ballot.drop(ballot.current_preference)
+            for winner in self.winners:
+                ballot.drop(winner)
 
     def eliminate_losers(self, scores):
         if not self.hopefuls:
@@ -120,7 +119,6 @@ class Election:
         the_loser = min(self.hopefuls, key=lambda cand: scores[cand])
         loser_score = scores[the_loser]
         losers = [cand for cand in self.hopefuls if scores[cand] == loser_score]
-        print(losers)
         for loser in losers:
             self.losers.append(loser)
             self.hopefuls.remove(loser)
