@@ -5,9 +5,8 @@ import os
 from pathlib import Path
 from typing import Mapping, Optional
 
-# import threading
-# from time import sleep
 import string
+import random
 
 import typer
 
@@ -64,7 +63,6 @@ class Election:
         return len(self.ballots) / (self.seats + 1)
 
     def run_election(self):
-        # threading.Timer(5.0, lambda: print(f"{self.winners=} {self.hopefuls=} {self.losers=}")).start()
         while len(self.winners) < self.seats:
             scores = {}
             for cand in self.hopefuls:
@@ -76,7 +74,7 @@ class Election:
                 scores[ballot.current_preference] += ballot.weight
 
             round_winners = list(sorted(
-                [cand for cand in self.hopefuls if scores[cand] > self.threshold],
+                [cand for cand in self.hopefuls if scores[cand] >= self.threshold],
                 key=lambda cand: scores[cand],
                 reverse=True,
             ))
@@ -136,7 +134,7 @@ class Election:
             ):
                 print(f"- {cand} - {score:.4f} - {score/len(self.ballots):.4%}")
             if round.winners is not None:
-                print(f"Elected {len(round.winners)} candidates")
+                print(f"Elected {len(round.winners)} candidates - {round.winners}")
             if round.losers is not None:
                 print(f"Eliminated {round.losers} and transferred votes")
         print("Results:")
