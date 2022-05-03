@@ -99,8 +99,8 @@ class Election:
                 final_winners = []
                 while len(self.winners) < self.seats:
                     final_winners.append(self.losers.pop())
-                    self.rounds.append(Round(final_winners, losers=None, scores=scores))
-                    self.winners.extend(final_winners)
+                self.rounds.append(Round(final_winners, losers=None, scores=scores))
+                self.winners.extend(final_winners)
 
             while len(self.winners) > self.seats:
                 self.winners.pop()
